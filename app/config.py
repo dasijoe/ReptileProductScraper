@@ -11,8 +11,8 @@ DEBUG = True
 SECRET_KEY = os.environ.get("SECRET_KEY")  # Required environment variable
 
 # Authentication settings
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")  # Required environment variable
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")  # Required environment variable
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "dasijoe")  # Default admin username
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "B@ng1234")  # Default admin password
 SESSION_LIFETIME = timedelta(hours=8)
 
 # Database settings
