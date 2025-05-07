@@ -1,65 +1,83 @@
 """
 Simple script to setup the Ultimate Exotics website in the database.
 """
-import os
 import logging
+import sys
+from datetime import datetime
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
-# Initialize Flask app context
+# Import Flask app
 from app import app, db
-from app.models import Website, Category
+from app.models.website import Website
+from app.models.category import Category
 
 def setup_categories():
     """Set up basic categories if they don't exist."""
-    from app.config import PRODUCT_CATEGORIES
+    # Common categories for reptile products
+    categories = [
+        'Reptiles', 
+        'Reptile Food',
+        'Reptile Housing',
+        'Heating Equipment',
+        'Lighting Equipment',
+        'Substrate',
+        'Decor',
+        'Cleaning Supplies',
+        'Healthcare',
+        'Supplements',
+        'Accessories'
+    ]
     
-    # Check if categories already exist
-    if Category.query.count() > 0:
-        logging.info("Categories already exist in the database")
-        return
-    
-    # Create categories
-    logging.info("Creating categories...")
-    for category_name in PRODUCT_CATEGORIES:
-        category = Category(name=category_name)
-        db.session.add(category)
-    
-    db.session.commit()
-    logging.info(f"Created {len(PRODUCT_CATEGORIES)} categories")
+    with app.app_context():
+        for name in categories:
+            # Check if category exists
+            category = Category.query.filter_by(name=name).first()
+            if not category:
+                category = Category(name=name)
+                db.session.add(category)
+                logging.info(f"Added category: {name}")
+        
+        db.session.commit()
+        logging.info("Categories setup complete")
 
 def ensure_website_exists():
     """Make sure Ultimate Exotics website entry exists in the database."""
-    website = Website.query.filter_by(url='https://ultimateexotics.co.za/shop/').first()
-    
-    if not website:
-        logging.info("Creating Ultimate Exotics website entry")
-        website = Website(
-            name='Ultimate Exotics',
-            url='https://ultimateexotics.co.za/shop/',
-            priority=1,  # Highest priority
-            request_delay=3.0,  # Conservative delay to avoid banning
-            max_products=50  # Start with a small batch for testing
-        )
-        db.session.add(website)
-        db.session.commit()
-        logging.info(f"Website created with ID: {website.id} and hash_id: {website.hash_id}")
-    else:
-        logging.info(f"Ultimate Exotics website found with ID: {website.id} and hash_id: {website.hash_id}")
-    
-    return website
+    with app.app_context():
+        # Check if website exists
+        website = Website.query.filter_by(url='https://ultimateexotics.co.za/shop/').first()
+        
+        if not website:
+            # Create website
+            website = Website(
+                name='Ultimate Exotics',
+                url='https://ultimateexotics.co.za/shop/',
+                priority=1,
+                request_delay=3.0,  # Conservative delay to avoid banning
+                max_products=20
+            )
+            db.session.add(website)
+            db.session.commit()
+            logging.info(f"Created website with ID: {website.id}")
+        else:
+            logging.info(f"Website already exists: {website.name} with ID: {website.id}")
 
-with app.app_context():
-    # Create directories
-    os.makedirs("data/images", exist_ok=True)
-    os.makedirs("data/exports", exist_ok=True)
+if __name__ == "__main__":
+    print("==== SETTING UP DATABASE FOR ULTIMATE EXOTICS ====")
     
-    # Setup categories
-    setup_categories()
+    with app.app_context():
+        # Create categories
+        setup_categories()
+        
+        # Create website
+        ensure_website_exists()
     
-    # Ensure website exists
-    website = ensure_website_exists()
-    
-    print(f"Ultimate Exotics website has been set up with hash_id: {website.hash_id}")
-    print("You can now go to the website management page and start the scraping process.")
+    print("==== SETUP COMPLETE ====")
+    print("Website and categories have been set up in the database.")
