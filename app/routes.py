@@ -19,6 +19,9 @@ from app.services.export_service import ExportService
 from app.services.image_service import ImageService
 from app.utils.validation import validate_url
 
+# Import API routes
+from app.api import register_api_routes
+
 # Initialize services
 ai_service = AIService()
 image_service = ImageService()
@@ -41,6 +44,8 @@ def register_routes(app):
     Args:
         app: Flask application instance
     """
+    # Register API routes
+    register_api_routes(app)
     
     @app.route('/login', methods=['GET', 'POST'])
     def login():

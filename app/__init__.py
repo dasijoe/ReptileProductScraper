@@ -37,11 +37,11 @@ os.makedirs('data/logs', exist_ok=True)
 
 # Import models to create tables
 from app.models.database import init_db
-from app.routes import register_routes
 
 # Initialize database tables
 with app.app_context():
     init_db()
 
 # Register routes
+from app.routes import register_routes
 register_routes(app)
