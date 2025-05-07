@@ -8,13 +8,17 @@ import random
 import logging
 import traceback
 import urllib.parse
+import subprocess
+import os
+from datetime import datetime
+
 from bs4 import BeautifulSoup
 import requests
 import trafilatura
-from datetime import datetime
+
 from app import db
 from app.models import Website, Product, Category, ScrapeLog
-from app.utils.throttling import Throttler
+from app.utils.throttling import Throttler 
 from app.config import DEFAULT_USER_AGENTS, MAX_REQUESTS_PER_MINUTE, RETRY_ATTEMPTS
 
 class ScraperService:
@@ -41,7 +45,7 @@ class ScraperService:
     
     def scrape_website(self, website):
         """
-        Scrape products from a website.
+        Scrape products from a website using an external process.
         
         Args:
             website: Website model instance
@@ -57,8 +61,70 @@ class ScraperService:
         # Update website status
         website.update_status('scraping')
         
+        # Determine which script to run based on website URL
+        script_name = None
+        if 'ultimateexotics.co.za' in website.url:
+            script_name = "scrape_ultimateexotics.py"
+        elif 'reptile-garden-sa.myshopify.com' in website.url:
+            script_name = "scrape_reptilegarden.py"
+        else:
+            # For other websites, use a generic approach
+            try:
+                return self._scrape_website_directly(website, scrape_log)
+            except Exception as e:
+                scrape_log.status = 'failed'
+                scrape_log.error_message = str(e)
+                scrape_log.end_time = datetime.utcnow()
+                website.status = 'failed'
+                db.session.commit()
+                return scrape_log
+        
+        # Run the appropriate script as a background process
         try:
-            logging.info(f"Starting scrape for {website.name} ({website.url})")
+            # Make sure data directories exist
+            os.makedirs("data/images", exist_ok=True)
+            os.makedirs("data/exports", exist_ok=True)
+            
+            # Start the process
+            process = subprocess.Popen(
+                ["python", script_name],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True
+            )
+            
+            # Write PID to file for monitoring
+            website_name = website.name.lower().replace(' ', '_')
+            with open(f"{website_name}_pid.txt", "w") as f:
+                f.write(f"{process.pid}")
+            
+            # Log the start
+            logging.info(f"Started scraper process for {website.name} (PID: {process.pid})")
+            
+            # No need to wait for process to complete as it runs in background
+            return scrape_log
+            
+        except Exception as e:
+            error_msg = f"Error starting scraper for {website.name}: {str(e)}"
+            logging.error(error_msg)
+            scrape_log.error_message = error_msg
+            scrape_log.complete(success=False)
+            website.update_status('failed')
+            return scrape_log
+    
+    def _scrape_website_directly(self, website, scrape_log):
+        """
+        Directly scrape a website without using an external script.
+        
+        Args:
+            website: Website model instance
+            scrape_log: ScrapeLog instance
+            
+        Returns:
+            ScrapeLog instance
+        """
+        try:
+            logging.info(f"Starting direct scrape for {website.name} ({website.url})")
             
             # Extract product links
             product_links = self._extract_product_links(website.url, scrape_log)
@@ -442,50 +508,81 @@ class ScraperService:
             except Exception:
                 continue
         
-        # Try to find any images that might be product related
+        # Try to find image in JSON-LD data
         try:
-            all_images = soup.select('img[src], img[data-src]')
-            for img in all_images:
-                src = img.get('data-src') or img.get('src')
-                if src and ('product' in src or 'item' in src):
-                    return urllib.parse.urljoin(product_url, src)
-            
-            # If still no image, take the first substantial one
-            for img in all_images:
-                src = img.get('data-src') or img.get('src')
-                if src and not src.startswith('data:'):
-                    if ('logo' not in src.lower() and 'icon' not in src.lower()):
-                        return urllib.parse.urljoin(product_url, src)
+            json_ld = soup.select_one('script[type="application/ld+json"]')
+            if json_ld:
+                data = json.loads(json_ld.string)
+                if isinstance(data, dict) and 'image' in data:
+                    return data['image']
         except Exception:
             pass
         
         return None
     
+    def _fetch_url(self, url, retries=RETRY_ATTEMPTS):
+        """
+        Fetch a URL with retry logic.
+        
+        Args:
+            url: URL to fetch
+            retries: Number of retries
+            
+        Returns:
+            HTML content or None if failed
+        """
+        for attempt in range(retries):
+            try:
+                response = self.session.get(
+                    url, 
+                    timeout=10,
+                    headers={'User-Agent': random.choice(DEFAULT_USER_AGENTS)}
+                )
+                
+                if response.status_code == 200:
+                    return response.text
+                
+                # If blocked or rate limited, wait longer before retry
+                if response.status_code in (403, 429):
+                    wait_time = (attempt + 1) * 5  # Exponential backoff
+                    logging.warning(f"Request blocked ({response.status_code}), waiting {wait_time}s before retry")
+                    time.sleep(wait_time)
+                else:
+                    logging.warning(f"Request failed with status code: {response.status_code}")
+                    
+            except Exception as e:
+                logging.error(f"Error fetching {url}: {str(e)}")
+                
+            # Wait before retry
+            time.sleep(attempt + 1)
+        
+        return None
+    
     def _process_product(self, product_data, website_id):
         """
-        Process extracted product data and save to database.
+        Process product data and save to database.
         
         Args:
             product_data: Dictionary with product data
             website_id: ID of the website
             
         Returns:
-            Product instance
+            Product instance or None if failed
         """
         try:
             # Categorize product
             category_result = self.ai_service.categorize_product(product_data)
-            category_name = category_result.get('category_name')
+            category_name = category_result.get('category_name', 'Uncategorized')
             confidence_score = category_result.get('confidence_score', 0.0)
             
-            # Get category ID
-            category_id = None
-            if category_name:
-                category = Category.find_by_name(category_name)
-                if category:
-                    category_id = category.id
+            # Get or create category
+            category = Category.query.filter_by(name=category_name).first()
+            if not category:
+                category = Category(name=category_name)
+                db.session.add(category)
+                db.session.flush()
             
-            # Download image if URL exists
+            # Download image if available
             image_path = None
             if product_data.get('image_url'):
                 image_path = self.image_service.download_image(
@@ -496,68 +593,24 @@ class ScraperService:
             # Create product
             product = Product(
                 name=product_data['name'],
-                website_id=website_id,
                 description=product_data.get('description', ''),
                 price=product_data.get('price'),
                 currency=product_data.get('currency', 'ZAR'),
                 url=product_data['url'],
                 image_url=product_data.get('image_url'),
                 image_path=image_path,
-                category_id=category_id,
+                website_id=website_id,
+                category_id=category.id if category else None,
                 confidence_score=confidence_score
             )
             
-            # Convert price to ZAR if needed
-            product.price_zar = product.price  # Default for ZAR currency
-            
-            # Save to database
             db.session.add(product)
             db.session.commit()
             
-            logging.info(f"Saved product: {product.name}")
+            logging.info(f"Product saved: {product.name}")
             return product
             
         except Exception as e:
+            logging.error(f"Error processing product {product_data.get('name', 'Unknown')}: {str(e)}")
             db.session.rollback()
-            logging.error(f"Error processing product: {str(e)}")
             return None
-    
-    def _fetch_url(self, url, retry=0):
-        """
-        Fetch URL with retries and error handling.
-        
-        Args:
-            url: The URL to fetch
-            retry: Current retry attempt
-        
-        Returns:
-            HTML content or None
-        """
-        if retry >= RETRY_ATTEMPTS:
-            logging.warning(f"Max retries reached for {url}")
-            return None
-        
-        try:
-            # Rotate user agent
-            self.session.headers.update({
-                'User-Agent': random.choice(DEFAULT_USER_AGENTS)
-            })
-            
-            response = self.session.get(url, timeout=10)
-            
-            if response.status_code == 200:
-                return response.text
-            elif response.status_code in [429, 403]:
-                # Rate limit or forbidden - wait longer and retry
-                wait_time = 5 * (retry + 1)
-                logging.warning(f"Rate limited ({response.status_code}), waiting {wait_time}s")
-                time.sleep(wait_time)
-                return self._fetch_url(url, retry + 1)
-            else:
-                logging.error(f"Failed to fetch {url}: {response.status_code}")
-                return None
-                
-        except requests.RequestException as e:
-            logging.error(f"Request error for {url}: {str(e)}")
-            time.sleep(2 * (retry + 1))
-            return self._fetch_url(url, retry + 1)
