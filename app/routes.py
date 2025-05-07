@@ -45,16 +45,22 @@ def register_routes(app):
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         """Handle login form and authentication."""
+        # For debugging, log the username and password from config
+        logging.debug(f"Expected credentials from config: {ADMIN_USERNAME} / {ADMIN_PASSWORD}")
+        
         if request.method == 'POST':
             username = request.form.get('username')
             password = request.form.get('password')
             
+            logging.debug(f"Login attempt: username={username}, password={'*' * len(password) if password else 'None'}")
+            
             if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
                 session['authenticated'] = True
                 session.permanent = True
+                flash('Login successful!', 'success')
                 return redirect(url_for('dashboard'))
             else:
-                flash('Invalid credentials. Please try again.', 'danger')
+                flash(f'Invalid credentials. Please try with username: {ADMIN_USERNAME} and password from config.', 'danger')
         
         return render_template('login.html')
     

@@ -1,10 +1,12 @@
 """
 Initialize models package.
 """
-from app.models.database import db
-from app.models.product import Product
-from app.models.website import Website
+from app import db
+
+# Import models after db is defined to avoid circular imports
 from app.models.category import Category
+from app.models.website import Website
+from app.models.product import Product
 from app.models.scrape_log import ScrapeLog
 
 # Export models
