@@ -1,240 +1,111 @@
 """
-Script to scrape Ultimate Exotics with steps to monitor progress.
-Implementing minimal scraping functionality with anti-ban protections.
+Script to run scrapers for multiple reptile product websites.
+This implements minimal functionality with anti-ban protections to start harvesting data.
 """
 import logging
 import time
 import os
 import sys
 import random
+import subprocess
+import threading
 from datetime import datetime
 
-# Set up logging to both file and console
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("ultimateexotics_scrape.log"),
-        logging.StreamHandler()
+        logging.FileHandler("scrape_process.log"),
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
-# We need to make sure the script exits at appropriate points
-def exit_script(message, exit_code=0):
-    """Exit the script with a message and code."""
-    print(f"\n{message}")
-    sys.exit(exit_code)
-
-# Create directories for storing data
+# Ensure directories exist
 def create_directories():
-    """Create necessary directories for storing data."""
+    """Create necessary directories for storing data and logs."""
     os.makedirs("data/images", exist_ok=True)
     os.makedirs("data/exports", exist_ok=True)
     logging.info("Created necessary directories")
+    
+def run_scraper(script_name, website_name):
+    """Run a scraper script as a subprocess and monitor its output."""
+    logging.info(f"Starting scraper for {website_name} using {script_name}")
+    
+    # Use a unique log file for each scraper
+    log_file = f"{website_name.lower().replace(' ', '_')}_scrape.log"
+    
+    try:
+        # Start the process
+        process = subprocess.Popen(
+            ["python", script_name],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
+        )
+        
+        # Write PID to file for monitoring
+        with open(f"{website_name.lower().replace(' ', '_')}_pid.txt", "w") as f:
+            f.write(f"{process.pid}")
+        
+        # Monitor and log output
+        with open(log_file, "a") as log:
+            log.write(f"\n\n==== NEW SCRAPE RUN STARTED AT {datetime.now()} ====\n\n")
+            
+            for line in process.stdout:
+                # Write to both the specific log file and the main log
+                log.write(line)
+                log.flush()
+                logging.info(f"[{website_name}] {line.strip()}")
+        
+        # Wait for process to complete
+        return_code = process.wait()
+        logging.info(f"Scraper for {website_name} completed with return code {return_code}")
+        
+        # Remove PID file
+        if os.path.exists(f"{website_name.lower().replace(' ', '_')}_pid.txt"):
+            os.remove(f"{website_name.lower().replace(' ', '_')}_pid.txt")
+            
+        return return_code == 0
+        
+    except Exception as e:
+        logging.error(f"Error running scraper for {website_name}: {str(e)}")
+        return False
 
-# Import application modules
-from app import app, db
-from app.models import Website, Product, Category, ScrapeLog
-from app.services.ai_service import AIService
-from app.services.image_service import ImageService
-from app.services.scraper_service import ScraperService
-
-def run_scrape():
-    """Main function to control the scraping process."""
-    with app.app_context():
-        try:
-            # Step 1: Setup and preparation
-            logging.info("==== STEP 1: SETUP AND PREPARATION ====")
-            create_directories()
-            
-            # Get or create website
-            website = Website.query.filter_by(url='https://ultimateexotics.co.za/shop/').first()
-            if not website:
-                logging.info("Creating Ultimate Exotics website entry")
-                website = Website(
-                    name='Ultimate Exotics',
-                    url='https://ultimateexotics.co.za/shop/',
-                    priority=1,
-                    request_delay=3.0,  # Conservative delay to avoid banning
-                    max_products=20  # Start with a small batch for testing
-                )
-                db.session.add(website)
-                db.session.commit()
-                logging.info(f"Created website with ID: {website.id}")
-            else:
-                logging.info(f"Found website: {website.name} (ID: {website.id})")
-            
-            # Initialize services
-            ai_service = AIService()
-            image_service = ImageService()
-            scraper = ScraperService(ai_service, image_service)
-            
-            input("Press Enter to continue to Step 2: Create Scrape Log...")
-            
-            # Step 2: Create Scrape Log
-            logging.info("==== STEP 2: CREATE SCRAPE LOG ====")
-            scrape_log = ScrapeLog(website_id=website.id)
-            scrape_log.status = 'running'
-            db.session.add(scrape_log)
-            db.session.commit()
-            logging.info(f"Created ScrapeLog with ID: {scrape_log.id}")
-            
-            # Update website status
-            website.status = 'scraping'
-            website.last_scraped = datetime.utcnow()
-            db.session.commit()
-            logging.info(f"Updated website status to: {website.status}")
-            
-            input("Press Enter to continue to Step 3: Extract Product Links...")
-            
-            # Step 3: Extract Product Links
-            logging.info("==== STEP 3: EXTRACT PRODUCT LINKS ====")
-            start_time = time.time()
-            logging.info(f"Starting link extraction from: {website.url}")
-            
-            # This can take some time
-            product_links = scraper._extract_product_links(website.url, scrape_log)
-            
-            elapsed = time.time() - start_time
-            num_links = len(product_links)
-            logging.info(f"Found {num_links} product links in {elapsed:.2f} seconds")
-            
-            # Update scrape log with link count
-            scrape_log.products_found = num_links
-            db.session.commit()
-            
-            # Display some of the found links
-            if num_links > 0:
-                logging.info("Sample of product links found:")
-                for i, link in enumerate(product_links[:5]):
-                    logging.info(f"  {i+1}. {link}")
-                if num_links > 5:
-                    logging.info(f"  ... and {num_links - 5} more")
-            else:
-                exit_script("No product links found. Exiting.", 1)
-            
-            input("Press Enter to continue to Step 4: Scrape Products...")
-            
-            # Step 4: Scrape Products
-            logging.info("==== STEP 4: SCRAPE PRODUCTS ====")
-            
-            # Limit the number of products for initial test
-            max_products = min(website.max_products, num_links)
-            logging.info(f"Will scrape up to {max_products} products")
-            
-            # Initialize counters
-            success_count = 0
-            failed_count = 0
-            
-            # Process each product with careful throttling
-            for i, product_url in enumerate(product_links[:max_products]):
-                logging.info(f"Processing product {i+1}/{max_products}: {product_url}")
-                
-                try:
-                    # Check if product already exists
-                    existing_product = Product.query.filter_by(url=product_url).first()
-                    if existing_product:
-                        logging.info(f"Product already exists: {product_url}")
-                        continue
-                    
-                    # Add randomized delay to avoid detection patterns
-                    delay = website.request_delay + random.uniform(0.5, 1.5)
-                    logging.info(f"Waiting {delay:.2f} seconds before next request...")
-                    time.sleep(delay)
-                    
-                    # Scrape the product
-                    logging.info(f"Scraping product data from: {product_url}")
-                    product_data = scraper._scrape_product(product_url, website.id)
-                    
-                    if product_data:
-                        logging.info(f"Successfully extracted data for: {product_data.get('name', 'Unnamed product')}")
-                        
-                        # Process the product
-                        product = scraper._process_product(product_data, website.id)
-                        if product:
-                            success_count += 1
-                            scrape_log.products_scraped = success_count
-                            logging.info(f"Successfully processed product: {product.name}")
-                        else:
-                            failed_count += 1
-                            scrape_log.products_failed = failed_count
-                            logging.warning(f"Failed to process product data")
-                    else:
-                        failed_count += 1
-                        scrape_log.products_failed = failed_count
-                        logging.warning(f"Failed to extract data from: {product_url}")
-                    
-                    # Update scrape log and commit transaction
-                    db.session.commit()
-                    
-                    # After every 5 products, confirm continuation
-                    if (i + 1) % 5 == 0 and i < max_products - 1:
-                        input(f"Processed {i+1}/{max_products} products. Press Enter to continue...")
-                    
-                except Exception as e:
-                    failed_count += 1
-                    scrape_log.products_failed = failed_count
-                    logging.error(f"Error processing {product_url}: {str(e)}")
-                    db.session.rollback()
-            
-            input("Press Enter to continue to Step 5: Finalize Scrape...")
-            
-            # Step 5: Finalize Scrape
-            logging.info("==== STEP 5: FINALIZE SCRAPE ====")
-            
-            # Update final statistics
-            if success_count > 0:
-                website.scrape_success_rate = success_count / (success_count + failed_count) if (success_count + failed_count) > 0 else 0
-                website.status = 'completed'
-                scrape_log.status = 'completed'
-                scrape_log.end_time = datetime.utcnow()
-                logging.info(f"Scrape completed: {success_count} products scraped, {failed_count} failed")
-            else:
-                website.status = 'failed'
-                scrape_log.status = 'failed'
-                scrape_log.error_message = "No products were successfully scraped"
-                scrape_log.end_time = datetime.utcnow()
-                logging.error("Scrape failed: No products were successfully scraped")
-            
-            db.session.commit()
-            
-            logging.info("==== SCRAPING PROCESS COMPLETE ====")
-            return success_count, failed_count, num_links
-            
-        except Exception as e:
-            logging.error(f"Error during scraping: {str(e)}")
-            import traceback
-            logging.error(traceback.format_exc())
-            
-            try:
-                # Try to update website and log status
-                website.status = 'failed'
-                scrape_log.status = 'failed'
-                scrape_log.error_message = str(e)
-                scrape_log.end_time = datetime.utcnow()
-                db.session.commit()
-            except:
-                pass
-            
-            return 0, 0, 0
+def setup_and_run():
+    """Setup database and run scrapers for all websites."""
+    # Initialize directories
+    create_directories()
+    
+    # First add websites to database
+    logging.info("Setting up websites in database")
+    from setup_websites import setup_all_websites
+    setup_all_websites()
+    
+    # Run scraper for Ultimate Exotics
+    ue_success = run_scraper("scrape_ultimateexotics.py", "Ultimate Exotics")
+    
+    # Run scraper for Reptile Garden
+    rg_success = run_scraper("scrape_reptilegarden.py", "Reptile Garden")
+    
+    # Log final results
+    logging.info("===== SCRAPING SUMMARY =====")
+    logging.info(f"Ultimate Exotics: {'SUCCESS' if ue_success else 'FAILED'}")
+    logging.info(f"Reptile Garden: {'SUCCESS' if rg_success else 'FAILED'}")
+    
+    return ue_success or rg_success
 
 if __name__ == "__main__":
-    print("\n===== ULTIMATE EXOTICS SCRAPER =====")
-    print("This script will scrape products from Ultimate Exotics with anti-ban protections.")
-    print("The process will stop at each major step for monitoring.")
-    print("Press Ctrl+C at any time to exit\n")
+    print("===== STARTING REPTILE PRODUCT SCRAPERS =====")
+    print("This script will scrape multiple websites for reptile products with anti-ban protections.")
     
-    # Confirm start
-    input("Press Enter to begin scraping...")
-    
+    # Run setup and scrapers
     start_time = time.time()
-    success, failed, total = run_scrape()
+    success = setup_and_run()
     elapsed = time.time() - start_time
     
-    print("\n===== SCRAPING SUMMARY =====")
-    print(f"Total time: {elapsed:.2f} seconds")
-    print(f"Products found: {total}")
-    print(f"Successfully scraped: {success}")
-    print(f"Failed: {failed}")
-    print(f"Success rate: {(success / total * 100) if total > 0 else 0:.2f}%")
-    print("\nCheck ultimateexotics_scrape.log for detailed log information.")
+    print(f"\nTotal execution time: {elapsed:.2f} seconds")
+    print("Check scrape_process.log for detailed information")
+    
+    sys.exit(0 if success else 1)
