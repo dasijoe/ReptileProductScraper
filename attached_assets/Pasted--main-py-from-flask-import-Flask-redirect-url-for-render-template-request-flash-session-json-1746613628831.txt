@@ -1,0 +1,84 @@
+# main.py
+from flask import Flask, redirect, url_for, render_template, request, flash, session, jsonify
+from werkzeug.security import check_password_hash
+from functools import wraps
+from app.models import init_db, Website, Product
+from app.services import ScraperService, AIService, ExportService, ImageService
+from app.config import ADMIN_USERNAME, ADMIN_PASSWORD, SESSION_LIFETIME
+
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'B@ng1234'  # For production, use a secure key
+app.config['PERMANENT_SESSION_LIFETIME'] = SESSION_LIFETIME
+
+# Initialize services
+ai_service = AIService()
+image_service = ImageService()
+scraper_service = ScraperService(ai_service, image_service)
+export_service = ExportService()
+
+# Initialize database
+with app.app_context():
+    init_db()
+
+# Authentication decorator
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'authenticated' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['authenticated'] = True
+            return redirect(url_for('dashboard'))
+        else:
+            flash('Invalid credentials')
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('authenticated', None)
+    return redirect(url_for('login'))
+
+@app.route('/')
+@login_required
+def dashboard():
+    websites = Website.find_all()
+    return render_template('dashboard.html', websites=websites)
+
+@app.route('/scrape/<website_id>', methods=['POST'])
+@login_required
+def scrape_website(website_id):
+    website = Website.find_by_id(website_id)
+    if not website:
+        flash('Website not found')
+        return redirect(url_for('dashboard'))
+    
+    # Start scraping in background (in production, use Celery or similar)
+    log = scraper_service.scrape_website(website)
+    
+    flash(f'Scraping initiated for {website.name}')
+    return redirect(url_for('dashboard'))
+
+@app.route('/export', methods=['GET', 'POST'])
+@login_required
+def export():
+    if request.method == 'POST':
+        export_format = request.form['format']
+        
+        if export_format == 'facebook':
+            file_path = export_service.export_facebook_catalog()
+            flash(f'Export completed: {file_path}')
+        
+    return render_template('export.html')
+
+if __name__ == '__main__':
+    app.run(debug=True)

@@ -1,0 +1,209 @@
+# Product Requirements Document (PRD) and Implementation Plan for Reptile Products Scraping Application
+
+## 1. Product Overview
+
+The Reptile Products Scraper is a web application designed to automatically collect, process, and format product information from competitor websites in the reptile and exotic pet supply industry. The application will scan designated websites at irregular intervals, extract product data including images, and format this information to be easily uploaded to Reptile Basics Facebook Commerce Manager Catalog.
+
+### Core Objectives
+- Create a centralized database of competitor products and pricing
+- Support competitive pricing analysis
+- Minimize manual data entry
+- Generate Facebook Commerce Manager-compatible data outputs
+- Implement AI-driven adaptive scraping techniques
+- Provide a simple, maintainable system with low operating costs
+
+## 2. Key Features
+
+### 2.1 Website Management
+- Pre-populated list of competitor websites
+- Ability to add/remove/prioritize websites
+- Status tracking of scraping progress per website
+
+### 2.2 AI-Powered Scraping
+- Adaptive scraping methods based on website structure
+- Self-learning capabilities to improve extraction over time
+- Content categorization into Reptile Basics product categories
+- Filtering to exclude non-exotic pet products (dogs, cats, etc.)
+
+### 2.3 Intelligent Throttling
+- Configurable scraping speed with default safe settings
+- Automatic rate limiting to avoid IP bans
+- Sprint-based extraction with configurable batch sizes
+- Pause/resume functionality for long scraping operations
+
+### 2.4 Data Processing
+- Deduplication of products across websites
+- Price extraction and currency conversion
+- Consistent data formatting
+- Image downloading and processing
+
+### 2.5 Output Generation
+- Facebook Commerce Manager Catalog compatible format
+- CSV, JSON, and spreadsheet export options
+- Batch update management to prevent partial updates
+- Differential updates to identify new/changed products
+
+### 2.6 Security
+- Single admin access with secure authentication
+- HashID implementation for all records (no sequential IDs)
+- Access logs and activity tracking
+
+## 3. Technical Specifications
+
+### 3.1 Architecture
+- Web application hosted on Replit
+- Python backend with FastAPI or Flask
+- SQLite database for data storage
+- Simple, responsive frontend
+
+### 3.2 Key Technologies
+- Python 3.9+
+- BeautifulSoup/Scrapy for web scraping
+- OpenAI API for AI assistance
+- SQLite for database
+- Flask/FastAPI for web framework
+- Celery for task management (optional)
+
+### 3.3 Data Schema
+- Products (hashID, name, description, price, categories, source, images, etc.)
+- Websites (hashID, url, priority, last_scraped, scrape_success_rate, etc.)
+- Scrape Logs (hashID, website_id, timestamp, products_scraped, errors, etc.)
+- Categories (hashID, name, parent_category, etc.)
+
+## 4. Implementation Plan
+
+### Phase 1: Foundation (Weeks 1-2)
+1. **Setup Development Environment**
+   - Create Replit project
+   - Configure basic Flask/FastAPI app
+   - Set up authentication system
+   - Implement basic admin interface
+
+2. **Database Design**
+   - Implement SQLite database with required schemas
+   - Create data models and relationships
+   - Set up hashID generation for all records
+
+3. **Basic Scraper Framework**
+   - Develop core scraping engine
+   - Implement website management functionality
+   - Create basic throttling system
+
+### Phase 2: Core Functionality (Weeks 3-4)
+1. **AI Integration**
+   - Connect to OpenAI API for content analysis
+   - Implement adaptive scraping techniques
+   - Develop category classification system
+
+2. **Data Processing Pipeline**
+   - Create product deduplication logic
+   - Implement image downloading and processing
+   - Develop pricing normalization features
+
+3. **Export System**
+   - Build Facebook Commerce Manager Catalog export
+   - Implement CSV/JSON export options
+   - Create differential update system
+
+### Phase 3: Refinement (Week 5)
+1. **Throttling and Optimization**
+   - Fine-tune scraping speeds and patterns
+   - Implement advanced rate limiting
+   - Add sprint-based extraction configuration
+
+2. **Testing and Validation**
+   - Test against all target websites
+   - Validate data accuracy
+   - Stress test system performance
+
+3. **Documentation and Deployment**
+   - Complete admin documentation
+   - Finalize deployment on Replit
+   - Set up monitoring systems
+
+## 5. Risk Management
+
+### 5.1 Technical Risks
+- Website structure changes breaking scrapers
+- IP blocking from target websites
+- Rate limiting from OpenAI API
+- Performance issues with large datasets
+
+### 5.2 Mitigation Strategies
+- Implement robust error handling and logging
+- Use rotating user agents and delayed requests
+- Cache AI responses to minimize API usage
+- Implement incremental processing for large datasets
+
+## 6. Operational Requirements
+
+### 6.1 Monitoring
+- Scraping success rate tracking
+- Error logging and notification
+- Performance metrics collection
+
+### 6.2 Maintenance
+- Weekly automated test runs
+- Monthly AI model updates
+- Quarterly website pattern verification
+
+## 7. Success Metrics
+- 95%+ successful extraction rate from target websites
+- Accurate categorization of >90% of products
+- Complete scraping of primary websites before moving to secondary ones
+- Facebook Commerce Manager upload success rate of >95%
+- Minimal manual intervention required for operation
+
+## 8. Budget and Resource Allocation
+- Replit hosting costs
+- OpenAI API usage (estimated 1000 calls per month)
+- Minimal ongoing maintenance (2-4 hours per month)
+
+---
+
+# Implementation Code Architecture
+
+Here's a detailed breakdown of the code architecture for implementing this solution. The actual implementation will be provided upon request.
+
+```
+reptile_scraper/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                 # Application entry point
+│   ├── config.py               # Configuration settings
+│   ├── auth/
+│   │   ├── __init__.py
+│   │   └── auth.py             # Authentication logic
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── database.py         # Database connection
+│   │   ├── product.py          # Product model
+│   │   ├── website.py          # Website model
+│   │   ├── category.py         # Category model
+│   │   └── scrape_log.py       # Scraping logs model
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── ai_service.py       # AI integration
+│   │   ├── scraper_service.py  # Core scraping logic
+│   │   ├── export_service.py   # Data export functions
+│   │   └── image_service.py    # Image processing
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── hash_utils.py       # Hash ID generation
+│   │   ├── throttling.py       # Request throttling
+│   │   └── validation.py       # Data validation
+│   └── web/
+│       ├── __init__.py
+│       ├── routes.py           # API routes
+│       ├── static/             # Static files
+│       └── templates/          # HTML templates
+├── data/
+│   ├── sqlite.db               # SQLite database
+│   ├── logs/                   # Log files
+│   └── images/                 # Downloaded images
+└── requirements.txt            # Dependencies
+```
+
+This architecture provides a clean separation of concerns and will allow for modular development and maintenance. The core components can be implemented one at a time while maintaining a functional system throughout the development process.
+
+Next steps would be to begin implementing the core code for each component, starting with the foundation and authentication system, then moving to the scraping engine. Would you like me to proceed with providing implementation code for any specific components?
