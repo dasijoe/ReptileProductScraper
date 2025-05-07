@@ -180,6 +180,8 @@ def scrape_website():
 @api_bp.route('/products', methods=['GET'])
 def get_products():
     """Get products with optional filtering."""
+    # Temporarily removed auth check for debugging
+    """Get products with optional filtering."""
     # Get query parameters
     category_id = request.args.get('category_id')
     website_id = request.args.get('website_id')
