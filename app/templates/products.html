@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Products - Reptile Products Scraper{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">Products</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('export') }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-file-earmark-arrow-down me-1"></i> Export Products
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form action="{{ url_for('products') }}" method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="category_id" class="form-label">Category</label>
+                <select class="form-select" id="category_id" name="category_id">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                    <option value="{{ category.id }}" {% if current_category|string == category.id|string %}selected{% endif %}>{{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="website_id" class="form-label">Website</label>
+                <select class="form-select" id="website_id" name="website_id">
+                    <option value="">All Websites</option>
+                    {% for website in websites %}
+                    <option value="{{ website.id }}" {% if current_website|string == website.id|string %}selected{% endif %}>{{ website.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="search" class="form-label">Search</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search" name="q" placeholder="Search products..." value="{{ search_query or '' }}">
+                    <button class="btn btn-outline-secondary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Products Grid -->
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-4">
+    {% for product in products.items %}
+    <div class="col">
+        <div class="card h-100">
+            {% if product.image_url %}
+            <div class="card-img-top-wrapper">
+                <img src="{{ product.image_url }}" class="card-img-top product-img" alt="{{ product.name }}">
+            </div>
+            {% else %}
+            <div class="card-img-top-wrapper d-flex align-items-center justify-content-center bg-light">
+                <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+            </div>
+            {% endif %}
+            <div class="card-body">
+                <h5 class="card-title text-truncate" title="{{ product.name }}">{{ product.name }}</h5>
+                
+                <div class="mb-2">
+                    <span class="badge bg-primary">{{ product.category.name if product.category else 'Uncategorized' }}</span>
+                    <span class="badge bg-secondary">{{ product.website.name if product.website else 'Unknown' }}</span>
+                </div>
+                
+                {% if product.price %}
+                <p class="card-text fs-5 fw-bold">R {{ "%.2f"|format(product.price) }}</p>
+                {% endif %}
+                
+                <p class="card-text small text-truncate-3">{{ product.description or 'No description available.' }}</p>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="btn-group">
+                        <a href="{{ product.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-link-45deg"></i> View
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#changeCategoryModal{{ product.id }}">
+                            <i class="bi bi-tag"></i> Category
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProductModal{{ product.id }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-muted small">
+                <i class="bi bi-speedometer"></i> Confidence: {{ (product.confidence_score * 100)|round|int }}%
+            </div>
+        </div>
+    </div>
+    
+    <!-- Change Category Modal -->
+    <div class="modal fade" id="changeCategoryModal{{ product.id }}" tabindex="-1" aria-labelledby="changeCategoryModalLabel{{ product.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changeCategoryModalLabel{{ product.id }}">Change Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('update_product_category', hash_id=product.hash_id) }}" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="category_id{{ product.id }}" class="form-label">Category</label>
+                            <select class="form-select" id="category_id{{ product.id }}" name="category_id">
+                                <option value="">Uncategorized</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}" {% if product.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Product Modal -->
+    <div class="modal fade" id="deleteProductModal{{ product.id }}" tabindex="-1" aria-labelledby="deleteProductModalLabel{{ product.id }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteProductModalLabel{{ product.id }}">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete <strong>{{ product.name }}</strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('delete_product', hash_id=product.hash_id) }}" method="POST">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12 text-center py-5">
+        <i class="bi bi-search fs-1 text-muted mb-3"></i>
+        <h4>No products found</h4>
+        <p class="text-muted">Try adjusting your filters or scrape some websites first.</p>
+        <a href="{{ url_for('websites') }}" class="btn btn-primary">Manage Websites</a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if products.items %}
+<div class="d-flex justify-content-center mt-4">
+    <nav aria-label="Product pagination">
+        <ul class="pagination">
+            {% if products.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('products', page=products.prev_num, category_id=current_category, website_id=current_website, q=search_query) }}">Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+            </li>
+            {% endif %}
+            
+            {% for page_num in products.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == products.page %}
+                    <li class="page-item active" aria-current="page">
+                        <a class="page-link" href="#">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('products', page=page_num, category_id=current_category, website_id=current_website, q=search_query) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <a class="page-link" href="#">...</a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if products.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('products', page=products.next_num, category_id=current_category, website_id=current_website, q=search_query) }}">Next</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

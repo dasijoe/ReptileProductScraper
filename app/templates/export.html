@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Export - Reptile Products Scraper{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">Export Products</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-box-seam me-1"></i> View Products
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Generate Export</h5>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('export') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="format" class="form-label">Export Format</label>
+                        <select class="form-select" id="format" name="format" required>
+                            <option value="csv">CSV (Comma Separated Values)</option>
+                            <option value="json">JSON (JavaScript Object Notation)</option>
+                            <option value="facebook">Facebook Commerce Manager Catalog</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="category_id" class="form-label">Category Filter (Optional)</label>
+                        <select class="form-select" id="category_id" name="category_id">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="website_id" class="form-label">Website Filter (Optional)</label>
+                        <select class="form-select" id="website_id" name="website_id">
+                            <option value="">All Websites</option>
+                            {% for website in websites %}
+                            <option value="{{ website.id }}">{{ website.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="min_confidence" class="form-label">Minimum Confidence Score</label>
+                        <input type="range" class="form-range" id="min_confidence" name="min_confidence" min="0" max="1" step="0.1" value="0">
+                        <div class="d-flex justify-content-between">
+                            <span>0.0</span>
+                            <span>0.5</span>
+                            <span>1.0</span>
+                        </div>
+                        <div class="form-text">Filter products by AI categorization confidence score</div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-file-earmark-arrow-down me-1"></i> Generate Export
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Previous Exports</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Filename</th>
+                                <th>Size</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for export in exports %}
+                            <tr>
+                                <td class="text-truncate" style="max-width: 200px;">{{ export.filename }}</td>
+                                <td>{{ export.size }}</td>
+                                <td>{{ export.date }}</td>
+                                <td>
+                                    <a href="{{ url_for('download_export', filename=export.filename) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center">No previous exports found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Export Formats</h5>
+            </div>
+            <div class="card-body">
+                <h6>CSV Format</h6>
+                <p>Standard comma-separated values format for easy import into spreadsheet applications.</p>
+                
+                <h6>JSON Format</h6>
+                <p>JavaScript Object Notation format for integration with web applications and APIs.</p>
+                
+                <h6>Facebook Commerce Manager</h6>
+                <p>Specially formatted CSV file ready for upload to Facebook Commerce Manager for product catalog creation.</p>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Exported files include product name, description, price, category, image URL, and source website information.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show confidence score value
+        const confidenceSlider = document.getElementById('min_confidence');
+        confidenceSlider.addEventListener('input', function() {
+            // Could add a display of the current value if needed
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,111 @@
+"""
+Configuration settings for the Reptile Products Scraper application.
+"""
+import os
+from datetime import timedelta
+
+# Application settings
+APP_NAME = "Reptile Products Scraper"
+DEBUG = True
+SECRET_KEY = os.environ.get("SECRET_KEY", "B@ng1234")  # Change in production
+
+# Authentication settings
+ADMIN_USERNAME = "dasijoe"
+ADMIN_PASSWORD = "B@ng1234"  # Should be stored securely in production
+SESSION_LIFETIME = timedelta(hours=8)
+
+# Database settings
+DATABASE_PATH = "data/sqlite.db"
+
+# Scraping settings
+DEFAULT_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"
+]
+
+# Default throttling settings
+DEFAULT_REQUEST_DELAY = 2  # seconds between requests
+DEFAULT_SPRINT_SIZE = 20  # products per sprint
+MAX_REQUESTS_PER_MINUTE = 20
+RETRY_ATTEMPTS = 3
+
+# AI settings
+AI_MODEL = "gpt-3.5-turbo"
+AI_MAX_TOKENS = 1000
+AI_TEMPERATURE = 0.1
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+# Export settings
+EXPORT_FORMATS = ["csv", "json", "facebook"]
+EXPORT_PATH = "data/exports/"
+IMAGES_PATH = "data/images/"
+
+# Category mappings to Reptile Basics categories
+PRODUCT_CATEGORIES = [
+    "Enclosures & Housing",
+    "Heating & Lighting",
+    "Feeding Supplies", 
+    "Substrate & Bedding",
+    "Decor & Enrichment",
+    "Health & Hygiene",
+    "Cleaning & Maintenance",
+    "Breeding Equipment",
+    "Transport & Handling",
+    "Species-Specific Needs",
+    "Uncategorized"
+]
+
+# Target websites to scrape
+TARGET_WEBSITES = [
+    "https://ultimateexotics.co.za/shop/",
+    "https://reptile-garden-sa.myshopify.com/",
+    "https://www.rebelpets.co.za/product/reptile-and-exotics/",
+    "https://www.unitedreptiles.co.za/",
+    "https://repticube.com/",
+    "https://www.nomoy-pet.com/products/",
+    "https://www.akwa.co.za/product-category/reptiles/",
+    "http://silkwormshop.co.za/shop/reptile-products/",
+    "https://pangeareptile.co.za/",
+    "https://clickapet.co.za/",
+    "https://coastalpets.co.za/collections/reptile-goods",
+    "https://reptilia.co.za/?post_type=product",
+    "https://petworld.co.za/collections/reptiles",
+    "https://www.feedersforafrica.co.za/index.php/browse/category/167-retail-shop",
+    "https://timsreptiles.co.za/",
+    "https://www.africansnakebiteinstitute.com/shop/",
+    "https://africanreptiles-venom.co.za/shopping/",
+    "https://phoenixpets.co.za/shop/",
+    "https://www.bobshop.co.za/garden-patio-pets/reptile-supplies/c/816",
+    "https://www.bobshop.co.za/garden-patio-pets/fish-aquarium-supplies/c/8499",
+    "https://www.takealot.com/pets/all?filter=AnimalType:Reptile&filter=Available:true&sort=BestSelling%20Descending",
+    "https://www.amazon.co.za/s?rh=n%3A27126113031%2Cn%3A27999859031&dc&qid=1746608103&rnid=27126113031&ref=sr_nr_n_5",
+    "https://www.makro.co.za/search?q=reptile",
+    "https://www.temu.com/za/fish-reptiles-amphibians-o3-322.html",
+    "https://www.alibaba.com/showroom/wholesale-reptile-supplies.html",
+    "https://www.aliexpress.com/w/wholesale-reptile-supplies.html",
+    "https://www.loot.co.za/pets"
+]
+
+# Keywords to identify reptile/exotic products (for filtering)
+REPTILE_KEYWORDS = [
+    "reptile", "snake", "lizard", "gecko", "frog", "turtle", "tortoise", 
+    "terrarium", "vivarium", "enclosure", "uvb", "heat lamp", "basking", 
+    "substrate", "crickets", "mealworms", "amphibian", "exotic", "spider", 
+    "scorpion", "tarantula", "insect", "feeder"
+]
+
+# Keywords to exclude (non-exotic pet products)
+EXCLUDE_KEYWORDS = [
+    "dog", "cat", "puppy", "kitten", "canine", "feline", "equine", "horse", 
+    "bird cage", "bird food", "seed", "dog toy", "cat litter", "dog collar", 
+    "cat collar", "hamster", "guinea pig", "rabbit"
+]
+
+# Exchange rates (updated periodically via API)
+EXCHANGE_RATES = {
+    "USD": 18.50,  # Default value, should be updated via API
+    "EUR": 20.10,  # Default value, should be updated via API
+    "GBP": 23.80,  # Default value, should be updated via API
+    "CNY": 2.65,   # Default value, should be updated via API
+}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Reptile Products Scraper{% endblock %}
+
+{% block extra_css %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('websites') }}" class="btn btn-sm btn-outline-secondary">Manage Websites</a>
+            <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary">View Products</a>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title text-muted mb-0">Websites</h5>
+                        <h2 class="my-2">{{ websites_count }}</h2>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="bi bi-globe fs-1 text-primary"></i>
+                    </div>
+                </div>
+                <p class="mb-0"><a href="{{ url_for('websites') }}" class="text-decoration-none">View all websites</a></p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title text-muted mb-0">Products</h5>
+                        <h2 class="my-2">{{ products_count }}</h2>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="bi bi-box-seam fs-1 text-success"></i>
+                    </div>
+                </div>
+                <p class="mb-0"><a href="{{ url_for('products') }}" class="text-decoration-none">View all products</a></p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title text-muted mb-0">Recent Scrapes</h5>
+                        <h2 class="my-2">{{ recent_logs|length }}</h2>
+                    </div>
+                    <div class="stats-icon">
+                        <i class="bi bi-journal-text fs-1 text-info"></i>
+                    </div>
+                </div>
+                <p class="mb-0"><a href="{{ url_for('scrape_logs') }}" class="text-decoration-none">View all logs</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts and Tables -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Product Categories</h5>
+                <a href="{{ url_for('products') }}" class="btn btn-sm btn-outline-secondary">View Products</a>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Top Websites</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Website</th>
+                                <th class="text-end">Products</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for website in top_websites %}
+                            <tr>
+                                <td>{{ website.name }}</td>
+                                <td class="text-end">{{ website.products }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="2" class="text-center">No websites with products yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Recent Scraping Activity</h5>
+                <a href="{{ url_for('scrape_logs') }}" class="btn btn-sm btn-outline-secondary">View All Logs</a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Website</th>
+                                <th>Status</th>
+                                <th>Products</th>
+                                <th>Start Time</th>
+                                <th>Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.website.name if log.website else "Unknown" }}</td>
+                                <td>
+                                    {% if log.status == "completed" %}
+                                    <span class="badge bg-success">Completed</span>
+                                    {% elif log.status == "running" %}
+                                    <span class="badge bg-primary">Running</span>
+                                    {% elif log.status == "failed" %}
+                                    <span class="badge bg-danger">Failed</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ log.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ log.products_scraped }}/{{ log.products_found }}</td>
+                                <td>{{ log.start_time.strftime('%Y-%m-%d %H:%M') if log.start_time else "N/A" }}</td>
+                                <td>{{ log.duration if log.duration else "In progress" }}</td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center">No scraping activity yet</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/chart-init.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Category chart data
+        const categoryData = {
+            labels: [{% for cat in category_data %}"{{ cat.name }}", {% endfor %}],
+            datasets: [{
+                label: 'Products',
+                data: [{% for cat in category_data %}{{ cat.products }}, {% endfor %}],
+                backgroundColor: [
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(153, 102, 255, 0.6)',
+                    'rgba(255, 159, 64, 0.6)',
+                    'rgba(255, 99, 132, 0.6)',
+                    'rgba(255, 205, 86, 0.6)',
+                    'rgba(201, 203, 207, 0.6)',
+                    'rgba(75, 192, 192, 0.6)',
+                    'rgba(54, 162, 235, 0.6)',
+                    'rgba(153, 102, 255, 0.6)',
+                    'rgba(255, 159, 64, 0.6)'
+                ],
+                borderColor: [
+                    'rgb(75, 192, 192)',
+                    'rgb(54, 162, 235)',
+                    'rgb(153, 102, 255)',
+                    'rgb(255, 159, 64)',
+                    'rgb(255, 99, 132)',
+                    'rgb(255, 205, 86)',
+                    'rgb(201, 203, 207)',
+                    'rgb(75, 192, 192)',
+                    'rgb(54, 162, 235)',
+                    'rgb(153, 102, 255)',
+                    'rgb(255, 159, 64)'
+                ],
+                borderWidth: 1
+            }]
+        };
+
+        // Create category chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(categoryCtx, {
+            type: 'doughnut',
+            data: categoryData,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                    }
+                }
+            }
+        });
+
+        // Refresh website status periodically
+        function refreshWebsiteStatus() {
+            fetch('{{ url_for("website_status") }}')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Website status updated');
+                    // Could update page elements with new status if needed
+                })
+                .catch(error => console.error('Error updating status:', error));
+        }
+
+        // Update every 30 seconds
+        setInterval(refreshWebsiteStatus, 30000);
+    });
+</script>
+{% endblock %}

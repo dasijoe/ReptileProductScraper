@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Scrape Logs - Reptile Products Scraper{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">Scrape Logs</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <a href="{{ url_for('websites') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-globe me-1"></i> Manage Websites
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form action="{{ url_for('scrape_logs') }}" method="GET" class="row g-3">
+            <div class="col-md-6">
+                <label for="website_id" class="form-label">Filter by Website</label>
+                <select class="form-select" id="website_id" name="website_id" onchange="this.form.submit()">
+                    <option value="">All Websites</option>
+                    {% for website in websites %}
+                    <option value="{{ website.id }}" {% if current_website and current_website.id == website.id %}selected{% endif %}>{{ website.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">
+            {% if current_website %}
+            Scrape Logs for {{ current_website.name }}
+            {% else %}
+            Recent Scrape Logs
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Website</th>
+                        <th>Status</th>
+                        <th>Products Found</th>
+                        <th>Successfully Scraped</th>
+                        <th>Failed</th>
+                        <th>Start Time</th>
+                        <th>Duration</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td>{{ log.website.name if log.website else "Unknown" }}</td>
+                        <td>
+                            {% if log.status == "completed" %}
+                            <span class="badge bg-success">Completed</span>
+                            {% elif log.status == "running" %}
+                            <span class="badge bg-primary">Running</span>
+                            {% elif log.status == "failed" %}
+                            <span class="badge bg-danger">Failed</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ log.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ log.products_found }}</td>
+                        <td>{{ log.products_scraped }}</td>
+                        <td>{{ log.products_failed }}</td>
+                        <td>{{ log.start_time.strftime('%Y-%m-%d %H:%M') if log.start_time else "N/A" }}</td>
+                        <td>{{ log.duration if log.duration else "In progress" }}</td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#logDetailsModal{{ log.id }}">
+                                <i class="bi bi-info-circle"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    
+                    <!-- Log Details Modal -->
+                    <div class="modal fade" id="logDetailsModal{{ log.id }}" tabindex="-1" aria-labelledby="logDetailsModalLabel{{ log.id }}" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="logDetailsModalLabel{{ log.id }}">Log Details: {{ log.website.name if log.website else "Unknown" }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Scrape Statistics</h6>
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <th>Start Time:</th>
+                                                    <td>{{ log.start_time.strftime('%Y-%m-%d %H:%M:%S') if log.start_time else "N/A" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>End Time:</th>
+                                                    <td>{{ log.end_time.strftime('%Y-%m-%d %H:%M:%S') if log.end_time else "In progress" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Duration:</th>
+                                                    <td>{{ log.duration if log.duration else "In progress" }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Products Found:</th>
+                                                    <td>{{ log.products_found }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Products Scraped:</th>
+                                                    <td>{{ log.products_scraped }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Products Failed:</th>
+                                                    <td>{{ log.products_failed }}</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Success Rate:</th>
+                                                    <td>
+                                                        {% if log.products_found > 0 %}
+                                                            {{ (log.products_scraped / log.products_found * 100)|round|int }}%
+                                                        {% else %}
+                                                            N/A
+                                                        {% endif %}
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Performance Metrics</h6>
+                                            <table class="table table-sm">
+                                                <tr>
+                                                    <th>Average Request Time:</th>
+                                                    <td>{{ "%.2f"|format(log.avg_request_time|float) }}s</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Total Requests:</th>
+                                                    <td>{{ log.total_request_count }}</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if log.error_message %}
+                                    <div class="alert alert-danger mt-3">
+                                        <h6>Error Details</h6>
+                                        <pre class="mb-0">{{ log.error_message }}</pre>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if log.log_details %}
+                                    <h6 class="mt-3">Log Details</h6>
+                                    <div class="bg-dark p-3 rounded">
+                                        <pre class="text-light mb-0"><code>{{ log.log_details }}</code></pre>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-4">
+                            <i class="bi bi-journal-text fs-1 text-muted mb-3 d-block"></i>
+                            <h5>No scrape logs found</h5>
+                            <p class="text-muted">Start scraping websites to see logs here.</p>
+                            <a href="{{ url_for('websites') }}" class="btn btn-primary mt-2">Manage Websites</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
