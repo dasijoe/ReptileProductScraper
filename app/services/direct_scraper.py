@@ -46,7 +46,7 @@ class DirectScraper:
         os.makedirs("data/images", exist_ok=True)
         os.makedirs("data/exports", exist_ok=True)
 
-    def scrape_website(self, website_url, max_products=10):
+    def scrape_website(self, website_url, max_products=10, test_mode=False):
         """
         Scrape a website directly.
 
@@ -86,6 +86,17 @@ class DirectScraper:
         logging.info(f"Starting scrape for {website.name} with user agent: {user_agent}")
 
         try:
+            # Validate connection before scraping
+            response = self.session.get(website.url, timeout=10)
+            if response.status_code != 200:
+                raise Exception(f"Website {website.url} returned status code {response.status_code}")
+
+            # Log scraping attempt
+            logging.info(f"Starting scrape for {website.name} ({website.url})")
+            if test_mode:
+                max_products = min(max_products, 3)  # Limit products in test mode
+                logging.info("Running in test mode with reduced product limit")
+
             # Determine which scraper to use based on URL
             if 'ultimateexotics.co.za' in website.url:
                 return self._scrape_ultimateexotics(website, scrape_log, max_products)
