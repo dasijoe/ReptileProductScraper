@@ -1,3 +1,4 @@
+
 """
 Configuration settings for the Reptile Products Scraper application.
 """
@@ -7,11 +8,11 @@ from datetime import timedelta
 # Application settings
 APP_NAME = "Reptile Products Scraper"
 DEBUG = True
-SECRET_KEY = os.environ.get("SECRET_KEY", "B@ng1234")  # Change in production
+SECRET_KEY = os.environ.get("SECRET_KEY")  # Required environment variable
 
 # Authentication settings
-ADMIN_USERNAME = "dasijoe"
-ADMIN_PASSWORD = "B@ng1234"  # Should be stored securely in production
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME")  # Required environment variable
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")  # Required environment variable
 SESSION_LIFETIME = timedelta(hours=8)
 
 # Database settings
@@ -34,7 +35,7 @@ RETRY_ATTEMPTS = 3
 AI_MODEL = "gpt-3.5-turbo"
 AI_MAX_TOKENS = 1000
 AI_TEMPERATURE = 0.1
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 # Export settings
 EXPORT_FORMATS = ["csv", "json", "facebook"]
